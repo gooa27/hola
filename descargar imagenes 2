@@ -1,0 +1,76 @@
+
+
+# DESDE AQUI PARA ABAJO EL CODIGO ESTA CORTADO, MENOS CANALES E IMAGENES PEQUE
+
+import glob
+import os
+import subprocess
+import sys  # Added to get the current Python interpreter.
+
+# Lista de canales que necesitas (limitado a los primeros 3)
+channels = ['B08', 'TCI', 'B05']
+fnames = []
+
+# Directorio de escenas
+scenes_dir = 'scenes'
+
+# Limitar el número de escenas a procesar (por ejemplo, las primeras 3)
+max_scenes = 3
+scenes_processed = 0
+
+# Generar la lista de archivos seleccionados
+for scene_name in os.listdir(scenes_dir):
+    if scenes_processed >= max_scenes:
+        break
+    image_fnames = glob.glob(os.path.join(scenes_dir, scene_name, 'GRANULE', 'L1C_*', 'IMG_DATA', '*.jp2'))
+    channel_to_fname = {fname.split('_')[-1].split('.')[0]: fname for fname in image_fnames}
+    selected_fnames = [channel_to_fname[channel] for channel in channels if channel in channel_to_fname]
+    fnames.extend(selected_fnames)
+    scenes_processed += 1
+
+if not fnames:
+    print("No se encontraron archivos JP2 en las rutas especificadas.")
+else:
+    # Nombre completo del archivo de salida
+    output_file = "/Users/nina/Desktop/Samsung/stack.tif"
+
+    # Generar el archivo en la nueva ubicación
+    try:
+        # Deshabilitar la verificación de espacio libre en disco
+        os.environ['CHECK_DISK_FREE_SPACE'] = 'FALSE'
+        subprocess.run([sys.executable, 'gdal_merge.py', '-o', output_file, '-separate'] + fnames, check=True)
+        print(f"Archivo generado directamente en: {output_file}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error al generar el archivo: {e}")
+    finally:
+        # Restaurar la configuración original
+        del os.environ['CHECK_DISK_FREE_SPACE']
+
+!pip install rasterio matplotlib
+
+
+import rasterio
+from rasterio.plot import show
+import matplotlib.pyplot as plt
+
+# Ruta al archivo generado
+output_file = "/Users/nina/Desktop/Samsung/stack.tif"  # Cambia esta ruta según sea necesario
+
+# Abrir el archivo raster
+with rasterio.open(output_file) as src:
+    # Leer las bandas del archivo
+    bands = [src.read(i) for i in range(1, src.count + 1)]
+    
+    # Mostrar información del archivo
+    print(f"Archivo: {output_file}")
+    print(f"Ancho: {src.width}")
+    print(f"Alto: {src.height}")
+    print(f"Cantidad de bandas: {src.count}")
+    print(f"Descripción de las bandas: {src.descriptions}")
+    
+    # Visualizar las bandas
+    fig, axes = plt.subplots(1, len(bands), figsize=(20, 10))
+    for i, band in enumerate(bands):
+        ax = axes[i]
+        show(band, ax=ax, title=f'Banda {i+1}')
+    plt.show()
